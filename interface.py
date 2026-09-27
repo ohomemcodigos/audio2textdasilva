@@ -1,17 +1,20 @@
 import customtkinter as ctk
 import tkinter as tk
+from tkinter import messagebox, filedialog
 from tkinterdnd2 import TkinterDnD, DND_FILES
 import os
 import json
 
-#lista de idiomas suportados pelo whisper para a aba de pesquisa
+#importa os novos modulos da nossa arquitetura
+from gestor_arquivos import exportar_colab
+from transcritor import processar_audios_local
+
 IDIOMAS_WHISPER = [
     "Alemão", "Árabe", "Coreano", "Chinês", "Dinamarquês", "Francês", 
     "Grego", "Hebraico", "Holandês", "Hindi", "Indonésio", "Italiano", 
     "Japonês", "Polonês", "Russo", "Sueco", "Turco", "Ucraniano", "Vietnamita"
 ]
 
-#classe base para juntar customtkinter com drag and drop
 class AppRoot(ctk.CTk, TkinterDnD.DnDWrapper):
     def __init__(self):
         super().__init__()
@@ -21,24 +24,18 @@ class Audio2TextApp(AppRoot):
     def __init__(self):
         super().__init__()
         self.title("audio2text da Silva")
-        self.geometry("750x750")
+        self.geometry("750x800")
         
-        #define o tema escuro
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
-        #carrega configuracoes (verifica se e a primeira vez)
         self.config_file = "config.json"
         self.config = self.carregar_config()
-        
-        #lista de ficheiros sem limite
         self.audio_files = []
         
         self.setup_ui()
         
-        #inicia o tour automaticamente se for a primeira vez
         if self.config.get("primeira_vez", True):
-            #delay de 500ms para a janela principal carregar antes de abrir o modal
             self.after(500, self.iniciar_tour)
 
     def carregar_config(self):
@@ -54,7 +51,6 @@ class Audio2TextApp(AppRoot):
         with open(self.config_file, "w") as f:
             json.dump(self.config, f)
 
-    #funcao utilitaria para prender as modais exatamente no meio da janela principal
     def centralizar_janela(self, janela, largura, altura):
         self.update_idletasks()
         x = self.winfo_x() + (self.winfo_width() // 2) - (largura // 2)
@@ -62,15 +58,12 @@ class Audio2TextApp(AppRoot):
         janela.geometry(f"{largura}x{altura}+{x}+{y}")
 
     def setup_ui(self):
-        # --- barra superior elegante ---
         self.frame_topo = ctk.CTkFrame(self, height=40, fg_color="transparent")
         self.frame_topo.pack(fill="x", padx=20, pady=(10, 0))
         
-        #o botao agora chama a funcao que abre o menu dropdown
         self.btn_ajuda = ctk.CTkButton(self.frame_topo, text="❓ Ajuda", width=100, fg_color="gray30", hover_color="gray40", command=self.mostrar_menu_ajuda)
         self.btn_ajuda.pack(side="right")
 
-        # --- area de drag and drop e fila ---
         self.frame_fila = ctk.CTkFrame(self)
         self.frame_fila.pack(padx=20, pady=10, fill="x")
         
@@ -80,27 +73,22 @@ class Audio2TextApp(AppRoot):
         self.btn_add = ctk.CTkButton(self.frame_fila, text="Adicionar Áudios", command=self.add_audio)
         self.btn_add.pack(pady=5)
         
-        #scroll sem limites
         self.scroll_arquivos = ctk.CTkScrollableFrame(self.frame_fila, height=150)
         self.scroll_arquivos.pack(padx=10, pady=10, fill="x")
         
-        #registar areas de drop
         self.frame_fila.drop_target_register(DND_FILES)
         self.frame_fila.dnd_bind('<<Drop>>', self.on_drop)
         self.scroll_arquivos.drop_target_register(DND_FILES)
         self.scroll_arquivos.dnd_bind('<<Drop>>', self.on_drop)
         
-        # --- configuracoes ---
         self.frame_config = ctk.CTkFrame(self)
         self.frame_config.pack(padx=20, pady=10, fill="x")
         
-        #idioma com gatilho para o modal
         self.lbl_idioma = ctk.CTkLabel(self.frame_config, text="Idioma Original:")
         self.lbl_idioma.grid(row=0, column=0, padx=10, pady=10, sticky="e")
         self.combo_idioma = ctk.CTkComboBox(self.frame_config, values=["Automático", "Português", "Inglês", "Espanhol", "Outros..."], command=self.verificar_idioma)
         self.combo_idioma.grid(row=0, column=1, padx=10, pady=10, sticky="w")
         
-        #modelo e icone elegante ajustado (letra 'i' nativa em vez de caractere especial borrado)
         self.lbl_modelo = ctk.CTkLabel(self.frame_config, text="Modelo de IA:")
         self.lbl_modelo.grid(row=1, column=0, padx=10, pady=10, sticky="e")
         
@@ -114,12 +102,10 @@ class Audio2TextApp(AppRoot):
         self.btn_info = ctk.CTkButton(frame_mod, text=" i ", width=28, corner_radius=14, font=("Arial", 14, "bold"), fg_color="gray30", text_color="cyan", hover_color="gray40", command=self.mostrar_info_modelos)
         self.btn_info.pack(side="left")
         
-        #traducao
         self.var_traduzir = ctk.BooleanVar()
         self.chk_traduzir = ctk.CTkCheckBox(self.frame_config, text="Traduzir texto final para Português", variable=self.var_traduzir)
         self.chk_traduzir.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="w")
         
-        # --- modo de processamento ---
         self.frame_modo = ctk.CTkFrame(self)
         self.frame_modo.pack(padx=20, pady=10, fill="x")
         
@@ -132,20 +118,22 @@ class Audio2TextApp(AppRoot):
         
         self.rad_colab = ctk.CTkRadioButton(self.frame_modo, text="☁️ Google Colab", variable=self.var_modo, value="colab")
         self.rad_colab.pack(side="left", padx=20, pady=10)
-        
-        # --- botao iniciar ---
-        self.btn_iniciar = ctk.CTkButton(self, text="Iniciar Processamento", height=40, font=("Arial", 14, "bold"), fg_color="green", hover_color="darkgreen", command=self.iniciar_processamento)
-        self.btn_iniciar.pack(pady=20)
 
-    # --- logica dos menus e modais customizadas ---
+        self.lbl_status = ctk.CTkLabel(self, text="Estado: Aguardando ficheiros...")
+        self.lbl_status.pack(pady=(15, 5))
+        
+        self.progress_bar = ctk.CTkProgressBar(self, mode="determinate", width=400)
+        self.progress_bar.set(0)
+        self.progress_bar.pack(pady=(0, 15))
+        
+        self.btn_iniciar = ctk.CTkButton(self, text="Iniciar Processamento", height=40, font=("Arial", 14, "bold"), fg_color="green", hover_color="darkgreen", command=self.iniciar_processamento)
+        self.btn_iniciar.pack(pady=5)
 
     def mostrar_menu_ajuda(self):
-        #cria um menu dropdown nativo do tkinter
         menu = tk.Menu(self, tearoff=0, bg="#2b2b2b", fg="white", font=("Arial", 10))
         menu.add_command(label="Fazer Tour Guiado", command=self.iniciar_tour)
         menu.add_command(label="Ajuda Específica", command=self.mostrar_ajuda_especifica)
         
-        #calcula a posicao exata debaixo do botao
         x = self.btn_ajuda.winfo_rootx()
         y = self.btn_ajuda.winfo_rooty() + self.btn_ajuda.winfo_height()
         menu.tk_popup(x, y)
@@ -175,15 +163,12 @@ class Audio2TextApp(AppRoot):
         ]
         self.tour_index = 0
         
-        #atualiza config para nao mostrar mais na inicializacao
         if self.config.get("primeira_vez", True):
             self.config["primeira_vez"] = False
             self.salvar_config()
 
         self.tour_win = ctk.CTkToplevel(self)
         self.tour_win.title("Tour Guiado")
-        
-        #aumentamos a altura de 250 para 300 e centralizamos
         self.centralizar_janela(self.tour_win, 450, 300)
         self.tour_win.grab_set() 
         self.tour_win.attributes("-topmost", True)
@@ -262,25 +247,21 @@ class Audio2TextApp(AppRoot):
     def mostrar_info_modelos(self):
         info_win = ctk.CTkToplevel(self)
         info_win.title("Sobre os Modelos")
-        #aumentamos a altura para 380 para evitar cortes
-        self.centralizar_janela(info_win, 450, 380)
+        self.centralizar_janela(info_win, 500, 420)
         info_win.grab_set()
         info_win.attributes("-topmost", True)
         
-        ctk.CTkLabel(info_win, text="Como escolher o Modelo certo?", font=("Arial", 18, "bold"), text_color="cyan").pack(pady=15)
+        ctk.CTkLabel(info_win, text="Como escolher a IA perfeita?", font=("Arial", 18, "bold"), text_color="cyan").pack(pady=15)
         
         texto = (
-            "• tiny/base: Rápido, mas pode errar pontuações.\n\n"
-            "• small: Bom equilíbrio para áudios limpos.\n\n"
-            "• medium: Ideal para PCs como o seu (Ryzen 5). Excelente precisão.\n\n"
-            "• large-v3: A melhor do mercado. Use quando for exportar para o Google Colab."
+            "Atenção: O download ocorre apenas na 1ª vez que usar o modelo.\n\n"
+            "• tiny/base (~75MB a 145MB): Download quase instantâneo e uso rápido. Pode errar pontuações.\n\n"
+            "• small (~480MB): Bom equilíbrio para áudios limpos.\n\n"
+            "• medium (~1.5GB): Ideal para PCs um pouco mais potentes. Excelente precisão.\n\n"
+            "• large-v3 (~3GB): A melhor do mercado. Use apenas quando for exportar para o Google Colab."
         )
-        #adicionado wraplength para forcar quebra de linha
-        ctk.CTkLabel(info_win, text=texto, font=("Arial", 14), justify="left", wraplength=400).pack(padx=20, pady=10, anchor="w")
-        
+        ctk.CTkLabel(info_win, text=texto, font=("Arial", 14), justify="left", wraplength=450).pack(padx=20, pady=10, anchor="w")
         ctk.CTkButton(info_win, text="Entendi", width=120, command=info_win.destroy).pack(pady=20)
-
-    # --- funcoes de lista e arquivos ---
 
     def on_drop(self, event):
         arquivos = self.tk.splitlist(event.data)
@@ -289,7 +270,6 @@ class Audio2TextApp(AppRoot):
                 self.adicionar_na_lista(f)
 
     def add_audio(self):
-        from tkinter import filedialog
         arquivos = filedialog.askopenfilenames(filetypes=[("Arquivos de Áudio", "*.mp3 *.wav *.m4a")])
         for f in arquivos:
             self.adicionar_na_lista(f)
@@ -299,7 +279,7 @@ class Audio2TextApp(AppRoot):
             self.audio_files.append(caminho)
             self.atualizar_ui_lista()
 
-    def atualizar_ui_lista(self):
+    def atualizar_ui_lista(self, pasta_global=None):
         for widget in self.scroll_arquivos.winfo_children():
             widget.destroy()
             
@@ -313,6 +293,9 @@ class Audio2TextApp(AppRoot):
             ctk.CTkLabel(cartao, text=f"🎵 {ext}", text_color="cyan", font=("Arial", 12, "bold")).pack(side="left", padx=10)
             ctk.CTkLabel(cartao, text=nome).pack(side="left", padx=10)
             
+            if pasta_global:
+                ctk.CTkLabel(cartao, text=f"-> {pasta_global}", text_color="gray50", font=("Arial", 10)).pack(side="left", padx=10)
+            
             ctk.CTkButton(cartao, text="X", width=30, fg_color="#c9302c", hover_color="#ac2925", command=lambda c=caminho: self.remover_da_lista(c)).pack(side="right", padx=10, pady=5)
 
     def remover_da_lista(self, caminho):
@@ -320,4 +303,115 @@ class Audio2TextApp(AppRoot):
         self.atualizar_ui_lista()
 
     def iniciar_processamento(self):
-        print("Lógica de salvar e IA pendentes para a próxima fase.")
+        if not self.audio_files:
+            messagebox.showerror("Erro", "A fila está vazia! Adicione pelo menos um arquivo.")
+            return
+            
+        self.destinos_selecionados = []
+        
+        if self.var_modo.get() == "colab":
+            pasta_colab = filedialog.askdirectory(title="Onde deseja salvar os ficheiros do Colab?")
+            if pasta_colab:
+                self.btn_iniciar.configure(state="disabled")
+                self.progress_bar.set(0.5)
+                self.lbl_status.configure(text="A preparar exportação para o Colab...")
+                
+                sucesso, msg = exportar_colab(self.audio_files, pasta_colab)
+                if sucesso:
+                    self.lbl_status.configure(text="Exportação concluída!")
+                    self.progress_bar.set(1.0)
+                    messagebox.showinfo("Sucesso", f"Ficheiros exportados para:\n{pasta_colab}\n\nFaça upload deles no Drive e abra o notebook.")
+                else:
+                    self.lbl_status.configure(text="Erro na exportação.")
+                    messagebox.showerror("Erro", msg)
+                self.btn_iniciar.configure(state="normal")
+        else:
+            self.pedir_destino(0)
+
+    def pedir_destino(self, index, pasta_padrao=None):
+        if index >= len(self.audio_files):
+            self.executar_ia_local()
+            return
+            
+        caminho_audio = self.audio_files[index]
+        nome_arquivo = os.path.basename(caminho_audio)
+        
+        if pasta_padrao:
+            caminho_final = os.path.join(pasta_padrao, f"{os.path.splitext(nome_arquivo)[0]}_transcrito.txt")
+            self.destinos_selecionados.append((caminho_audio, caminho_final))
+            self.pedir_destino(index + 1, pasta_padrao)
+            return
+            
+        modal = ctk.CTkToplevel(self)
+        modal.title("Local de Salvamento")
+        self.centralizar_janela(modal, 500, 300)
+        modal.grab_set()
+        modal.attributes("-topmost", True)
+        
+        ctk.CTkLabel(modal, text=f"Aonde você deseja salvar o áudio:\n{nome_arquivo}?", font=("Arial", 16, "bold"), text_color="cyan").pack(pady=20)
+        
+        var_pasta = ctk.StringVar(value="Nenhuma pasta selecionada")
+        ctk.CTkLabel(modal, textvariable=var_pasta, text_color="gray80").pack(pady=5)
+        
+        pasta_escolhida = [None] 
+        
+        def escolher_pasta():
+            p = filedialog.askdirectory()
+            if p:
+                pasta_escolhida[0] = p
+                var_pasta.set(p)
+                
+        ctk.CTkButton(modal, text="Escolher Pasta...", fg_color="gray30", command=escolher_pasta).pack(pady=10)
+        
+        var_aplicar_todos = ctk.BooleanVar(value=False)
+        if len(self.audio_files) - index > 1:
+            ctk.CTkCheckBox(modal, text="Os áudios restantes devem ser salvos no mesmo lugar?", variable=var_aplicar_todos).pack(pady=10)
+            
+        def confirmar():
+            if not pasta_escolhida[0]:
+                messagebox.showwarning("Atenção", "Por favor, escolha uma pasta primeiro.")
+                return
+                
+            pasta = pasta_escolhida[0]
+            caminho_final = os.path.join(pasta, f"{os.path.splitext(nome_arquivo)[0]}_transcrito.txt")
+            self.destinos_selecionados.append((caminho_audio, caminho_final))
+            
+            aplicar_resto = pasta if var_aplicar_todos.get() else None
+            if aplicar_resto:
+                self.atualizar_ui_lista(pasta_global=pasta)
+                
+            modal.destroy()
+            self.pedir_destino(index + 1, aplicar_resto)
+            
+        ctk.CTkButton(modal, text="Confirmar", fg_color="green", command=confirmar).pack(pady=15)
+
+    def executar_ia_local(self):
+        self.btn_iniciar.configure(state="disabled")
+        self.progress_bar.set(0)
+        
+        def update_status(msg):
+            self.lbl_status.configure(text=msg)
+            
+        def update_progress(valor):
+            self.progress_bar.set(valor)
+            
+        def finalizado():
+            self.lbl_status.configure(text="Concluído com sucesso!")
+            self.btn_iniciar.configure(state="normal")
+            messagebox.showinfo("Pronto", "Todos os áudios foram processados!")
+            
+        def com_erro(erro):
+            self.lbl_status.configure(text="Erro no processamento.")
+            self.btn_iniciar.configure(state="normal")
+            messagebox.showerror("Erro", erro)
+            
+        processar_audios_local(
+            self.destinos_selecionados,
+            self.combo_modelo.get(),
+            self.combo_idioma.get(),
+            self.var_traduzir.get(),
+            update_status,
+            update_progress,
+            finalizado,
+            com_erro
+        )
