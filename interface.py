@@ -80,7 +80,6 @@ class Audio2TextApp(AppRoot):
             else:
                 self.combo_modelo.set("base")
                 
-            # Atualiza o aviso visual com a recomendação
             self.lbl_otimizacao.configure(text=f"✓ Otimizado para o seu PC ({threads} Threads)")
             
             if self.config.get("primeira_vez", True):
@@ -118,13 +117,13 @@ class Audio2TextApp(AppRoot):
         self.btn_config = ctk.CTkButton(self.frame_topo, text="⚙️ Configurações", width=120, fg_color="gray30", hover_color="gray40", command=self.abrir_configuracoes)
         self.btn_config.pack(side="left")
 
-        self.btn_ajuda = ctk.CTkButton(self.frame_topo, text="❓ Ajuda", width=100, fg_color="gray30", hover_color="gray40", command=self.mostrar_menu_ajuda)
+        self.btn_ajuda = ctk.CTkButton(self.frame_topo, text="❓ Ajuda & Tutoriais", width=140, fg_color="#1f538d", hover_color="#14375e", command=self.mostrar_menu_ajuda)
         self.btn_ajuda.pack(side="right")
 
         self.frame_fila = ctk.CTkFrame(self)
         self.frame_fila.pack(padx=20, pady=10, fill="x")
         
-        self.lbl_fila = ctk.CTkLabel(self.frame_fila, text="Arraste Áudios ou Vídeos (.mp4) aqui", font=("Arial", 16))
+        self.lbl_fila = ctk.CTkLabel(self.frame_fila, text="Arraste Áudios ou Vídeos (.mp4, .mkv) aqui", font=("Arial", 16))
         self.lbl_fila.pack(pady=10)
         
         self.btn_add = ctk.CTkButton(self.frame_fila, text="Adicionar Arquivos", command=self.add_audio)
@@ -156,10 +155,6 @@ class Audio2TextApp(AppRoot):
         self.combo_modelo.set("medium")
         self.combo_modelo.pack(side="left", padx=(0, 5))
         
-        self.btn_info = ctk.CTkButton(frame_mod, text=" i ", width=28, corner_radius=14, font=("Arial", 14, "bold"), fg_color="gray30", text_color="cyan", hover_color="gray40", command=self.mostrar_info_modelos)
-        self.btn_info.pack(side="left")
-        
-        # Label de Otimização Visual (Fica invisível até ser preenchida pelo scan)
         self.lbl_otimizacao = ctk.CTkLabel(frame_mod, text="", text_color="#2ecc71", font=("Arial", 11, "italic"))
         self.lbl_otimizacao.pack(side="left", padx=10)
         
@@ -207,7 +202,7 @@ class Audio2TextApp(AppRoot):
         self.btn_iniciar = ctk.CTkButton(self, text="Iniciar Processamento", height=40, font=("Arial", 14, "bold"), fg_color="green", hover_color="darkgreen", command=self.iniciar_processamento)
         self.btn_iniciar.pack(pady=5)
         
-        self.lbl_versao = ctk.CTkLabel(self, text="Versão: em testes", font=("Arial", 11, "italic"), text_color="gray50")
+        self.lbl_versao = ctk.CTkLabel(self, text="Versão: em 1.0.0", font=("Arial", 11, "italic"), text_color="gray50")
         self.lbl_versao.pack(side="bottom", pady=5)
 
     def verificar_formato(self, escolha):
@@ -252,9 +247,9 @@ class Audio2TextApp(AppRoot):
         lbl_pasta_atual.pack(side="left")
         
         def escolher_pasta_default():
-            conf_win.attributes("-topmost", False) # Desliga para não esconder a janela do Windows
+            conf_win.attributes("-topmost", False)
             p = filedialog.askdirectory()
-            conf_win.attributes("-topmost", True)  # Religa assim que escolhe
+            conf_win.attributes("-topmost", True)
             if p:
                 self.config["pasta_padrao"] = p
                 self.salvar_config()
@@ -289,35 +284,95 @@ class Audio2TextApp(AppRoot):
 
         ctk.CTkButton(conf_win, text="Fechar", command=conf_win.destroy).pack(pady=20)
 
+    # ------------------ SISTEMA DE AJUDA E TUTORIAIS ------------------
+
     def mostrar_menu_ajuda(self):
         menu = tk.Menu(self, tearoff=0, bg="#2b2b2b", fg="white", font=("Arial", 10))
-        menu.add_command(label="Fazer Tour Guiado", command=self.iniciar_tour)
-        menu.add_command(label="Ajuda Específica", command=self.mostrar_ajuda_especifica)
+        menu.add_command(label="▶ Fazer Tour Guiado", command=self.iniciar_tour)
+        menu.add_separator()
+        menu.add_command(label="📖 Manual Básico & Dicas", command=self.mostrar_ajuda_especifica)
+        menu.add_command(label="☁️ Tutorial: Usando o Google Colab", command=self.mostrar_tutorial_colab)
+        
         x = self.btn_ajuda.winfo_rootx()
         y = self.btn_ajuda.winfo_rooty() + self.btn_ajuda.winfo_height()
         menu.tk_popup(x, y)
 
     def mostrar_ajuda_especifica(self):
         ajuda_win = ctk.CTkToplevel(self)
-        ajuda_win.title("Ajuda Específica")
-        self.centralizar_janela(ajuda_win, 500, 350)
+        ajuda_win.title("Manual Básico & Dicas")
+        self.centralizar_janela(ajuda_win, 550, 480)
         ajuda_win.grab_set()
         ajuda_win.attributes("-topmost", True)
-        ctk.CTkLabel(ajuda_win, text="Documentação e Ajuda", font=("Arial", 18, "bold"), text_color="cyan").pack(pady=15)
+        
+        ctk.CTkLabel(ajuda_win, text="Boas Práticas de Uso", font=("Arial", 18, "bold"), text_color="cyan").pack(pady=15)
+        
+        scroll = ctk.CTkScrollableFrame(ajuda_win, width=500, height=330)
+        scroll.pack(padx=10, pady=5, fill="both", expand=True)
+
         texto = (
-            "1. Formatos: Use .srt para criar legendas temporizadas ou .docx para relatórios.\n"
-            "2. Vídeos: Arraste vídeos (.mp4, .mkv) diretamente. A IA processa sem precisar de extrair o áudio à mão.\n"
-            "3. Revisão: Após o processamento, uma janela será aberta para corrigir eventuais erros antes de salvar o arquivo final."
+            "⏳ SOBRE ARQUIVOS MUITO LONGOS:\n"
+            "A IA processa o áudio em blocos. Arquivos com mais de 1 hora podem levar um tempo considerável (30 a 50 minutos) dependendo do seu computador. "
+            "É normal que o PC fique lento durante o processo, pois a CPU estará em uso máximo. Tenha paciência e acompanhe o ETA (tempo restante) na barra inferior.\n\n"
+            
+            "🎯 FIDELIDADE E MODELOS DE IA:\n"
+            "• tiny / base: São rápidos, mas a fidelidade é baixa. Podem pular palavras e errar muita pontuação.\n"
+            "• small: Um meio-termo aceitável para áudios com qualidade de estúdio.\n"
+            "• medium (Recomendado): Oferece alta fidelidade, reconhece bem sotaques e pontuações naturais.\n"
+            "• large-v3: Qualidade profissional impecável. Quase não precisa de revisão, mas exige computadores muito potentes (ou uso via Google Colab).\n\n"
+            
+            "📝 FORMATOS DE EXPORTAÇÃO:\n"
+            "• .srt: Padrão universal para legendas de vídeo. Já vem com os blocos de tempo exatos.\n"
+            "• .docx: Gera um arquivo pronto para o Microsoft Word, ideal para relatórios e transcrições de entrevistas.\n"
+            "• .txt: O formato de bloco de notas simples, leve e direto."
         )
-        ctk.CTkLabel(ajuda_win, text=texto, font=("Arial", 14), justify="left", wraplength=450).pack(padx=20, pady=10)
-        ctk.CTkButton(ajuda_win, text="Fechar", width=120, command=ajuda_win.destroy).pack(pady=20)
+        ctk.CTkLabel(scroll, text=texto, font=("Arial", 13), justify="left", wraplength=480).pack(padx=10, pady=10)
+        
+        ctk.CTkButton(ajuda_win, text="Entendi", width=120, command=ajuda_win.destroy).pack(pady=15)
+
+    def mostrar_tutorial_colab(self):
+        colab_win = ctk.CTkToplevel(self)
+        colab_win.title("Tutorial: Google Colab")
+        self.centralizar_janela(colab_win, 600, 550)
+        colab_win.grab_set()
+        colab_win.attributes("-topmost", True)
+        
+        ctk.CTkLabel(colab_win, text="Como usar o poder da Nuvem Grátis", font=("Arial", 18, "bold"), text_color="#f9ab00").pack(pady=15)
+        
+        scroll = ctk.CTkScrollableFrame(colab_win, width=550, height=400)
+        scroll.pack(padx=10, pady=5, fill="both", expand=True)
+
+        texto = (
+            "O Google Colab permite usar os supercomputadores do Google para rodar o modelo mais pesado (Large-v3) de forma rápida e gratuita, sem travar o seu PC.\n\n"
+            
+            "PASSO 1: EXPORTAR AQUI NO APP\n"
+            "Na tela inicial, marque '☁️ Google Colab' e clique em Iniciar. O aplicativo vai gerar 2 arquivos na pasta que você escolher:\n"
+            "• audios_para_colab.zip (seus áudios)\n"
+            "• audio2text_Colab.ipynb (o cérebro do projeto)\n\n"
+            
+            "PASSO 2: GOOGLE DRIVE\n"
+            "Abra o seu Google Drive no navegador e crie uma pasta nova. Arraste os dois arquivos gerados (.zip e .ipynb) para dentro dessa pasta e espere o upload terminar.\n\n"
+            
+            "PASSO 3: ABRINDO O COLAB\n"
+            "No Google Drive, dê dois cliques no arquivo 'audio2text_Colab.ipynb'. Ele vai abrir uma nova aba chamada Google Colaboratory. (Se ele perguntar com o que abrir, escolha Google Colaboratory).\n\n"
+            
+            "PASSO 4: EXECUTANDO A MÁGICA\n"
+            "No menu superior do site do Colab, clique em 'Ambiente de Execução' e depois em 'Executar tudo' (ou aperte Ctrl+F9).\n"
+            "O Google vai começar a trabalhar sozinho. Ele vai baixar os programas necessários e começar a transcrever.\n\n"
+            
+            "PASSO 5: BAIXAR O RESULTADO\n"
+            "Quando terminar, no menu lateral esquerdo do Colab, clique no ícone de uma 'Pastinha'. Lá dentro, você verá uma pasta chamada 'meus_audios'. Clique nela e seus textos transcritos estarão prontos para baixar (clicando nos 3 pontinhos ao lado deles)!"
+        )
+        ctk.CTkLabel(scroll, text=texto, font=("Arial", 13), justify="left", wraplength=500).pack(padx=10, pady=10)
+        
+        ctk.CTkButton(colab_win, text="Fechar Tutorial", width=150, command=colab_win.destroy).pack(pady=15)
 
     def iniciar_tour(self):
         self.tour_steps = [
-            {"titulo": "Bem-vindo!", "texto": "Este é o audio2text da Silva. Vamos fazer um tour rápido de 4 passos."},
-            {"titulo": "1. Fila de Mídia", "texto": "Arraste os seus arquivos de áudio ou VÍDEO (.mp4, .mkv) para dentro da janela!"},
-            {"titulo": "2. Idiomas e Modelos", "texto": "Escolha o formato de saída (.srt para vídeos, .docx para texto). Use o botão 'i' para escolher o modelo certo."},
-            {"titulo": "3. Revisão Integrada", "texto": "Assim que a IA terminar, abriremos uma janela onde poderá ler e editar o texto inteiro antes de salvar!"}
+            {"titulo": "Bem-vindo ao audio2text!", "texto": "Este é o seu assistente pessoal de transcrição. Todo o processamento padrão ocorre localmente, garantindo total privacidade dos seus dados."},
+            {"titulo": "1. Fila de Arquivos", "texto": "Arraste seus áudios ou vídeos (.mp4, .mkv) diretamente para cá. \n\nAviso: Áudios muito longos (horas de duração) exigirão bastante da sua máquina e levarão tempo. Tenha paciência!"},
+            {"titulo": "2. Escolhendo a Fidelidade", "texto": "O segredo está no 'Modelo de IA'. Modelos menores são rápidos, mas erram pontuação. O modelo 'Medium' é o mais equilibrado. O 'Large' beira a perfeição, mas é muito pesado."},
+            {"titulo": "3. Saída e Revisão", "texto": "Você pode gerar legendas temporizadas (.srt), documentos para o Word (.docx) ou texto simples (.txt). Ao final, abriremos uma janela de edição para você dar a última lida antes de salvar."},
+            {"titulo": "4. O PC não aguenta?", "texto": "Se o seu computador for fraco para o modelo Large, escolha a opção '☁️ Google Colab'. Isso exportará os arquivos para você rodar na nuvem do Google de graça!\n\nConsulte o menu '❓ Ajuda' lá em cima para ver o tutorial passo a passo do Colab."}
         ]
         self.tour_index = 0
         if self.config.get("primeira_vez", True):
@@ -326,13 +381,13 @@ class Audio2TextApp(AppRoot):
 
         self.tour_win = ctk.CTkToplevel(self)
         self.tour_win.title("Tour Guiado")
-        self.centralizar_janela(self.tour_win, 450, 300)
+        self.centralizar_janela(self.tour_win, 500, 320)
         self.tour_win.grab_set() 
         self.tour_win.attributes("-topmost", True)
         
         self.lbl_tour_titulo = ctk.CTkLabel(self.tour_win, text="", font=("Arial", 18, "bold"), text_color="cyan")
         self.lbl_tour_titulo.pack(pady=(20, 10))
-        self.lbl_tour_texto = ctk.CTkLabel(self.tour_win, text="", font=("Arial", 14), wraplength=400, justify="center")
+        self.lbl_tour_texto = ctk.CTkLabel(self.tour_win, text="", font=("Arial", 14), wraplength=450, justify="center")
         self.lbl_tour_texto.pack(pady=10, padx=20)
         
         frame_nav = ctk.CTkFrame(self.tour_win, fg_color="transparent")
@@ -366,6 +421,8 @@ class Audio2TextApp(AppRoot):
             self.tour_index -= 1
             self.atualizar_tour()
 
+    # ------------------ RESTO DA APLICAÇÃO MANTIDO ------------------
+
     def verificar_idioma(self, escolha):
         if escolha == "Outros...":
             self.abrir_modal_idiomas()
@@ -396,24 +453,6 @@ class Audio2TextApp(AppRoot):
                     
         entry_busca.bind("<KeyRelease>", lambda e: preencher_lista(entry_busca.get()))
         preencher_lista()
-
-    def mostrar_info_modelos(self):
-        info_win = ctk.CTkToplevel(self)
-        info_win.title("Sobre os Modelos")
-        self.centralizar_janela(info_win, 500, 420)
-        info_win.grab_set()
-        info_win.attributes("-topmost", True)
-        
-        ctk.CTkLabel(info_win, text="Como escolher a IA perfeita?", font=("Arial", 18, "bold"), text_color="cyan").pack(pady=15)
-        texto = (
-            "Atenção: O download ocorre apenas na 1ª vez que usar o modelo.\n\n"
-            "• tiny/base (~75MB a 145MB): Download quase instantâneo e uso rápido. Pode errar pontuações.\n\n"
-            "• small (~480MB): Bom equilíbrio para áudios limpos.\n\n"
-            "• medium (~1.5GB): Ideal para o seu PC. Excelente precisão.\n\n"
-            "• large-v3 (~3GB): A melhor do mercado. Use apenas quando for exportar para o Google Colab."
-        )
-        ctk.CTkLabel(info_win, text=texto, font=("Arial", 14), justify="left", wraplength=450).pack(padx=20, pady=10, anchor="w")
-        ctk.CTkButton(info_win, text="Entendi", width=120, command=info_win.destroy).pack(pady=20)
 
     def on_drop(self, event):
         arquivos = self.tk.splitlist(event.data)
@@ -602,9 +641,9 @@ class Audio2TextApp(AppRoot):
         pasta = self.config.get("pasta_padrao", "")
         
         if not pasta or not os.path.exists(pasta):
-            self.rev_win.attributes("-topmost", False) # Desliga para não esconder o explorador
+            self.rev_win.attributes("-topmost", False) 
             pasta = filedialog.askdirectory(title=f"Onde salvar {res['nome_base']}?")
-            self.rev_win.attributes("-topmost", True)  # Religa logo em seguida
+            self.rev_win.attributes("-topmost", True)  
             if not pasta:
                 return 
                 
@@ -615,7 +654,6 @@ class Audio2TextApp(AppRoot):
             self.construir_lista_revisao()
             self.carregar_texto_revisao(self.idx_atual)
             
-            # Tira o topmost temporariamente para exibir as messageboxes com tranquilidade
             self.rev_win.attributes("-topmost", False)
             messagebox.showinfo("Sucesso", f"Salvo em:\n{msg}")
             
