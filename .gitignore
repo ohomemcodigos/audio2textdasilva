@@ -6,3 +6,6 @@ __pycache__/
 config.json
 settings.json
 .vscode/
+build/
+dist/
+*.spec
